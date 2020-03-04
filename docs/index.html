@@ -1,0 +1,340 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<style>
+  body {
+    padding: 100px;
+    width: 1000px;
+    margin: auto;
+    text-align: left;
+    font-weight: 300;
+    font-family: 'Open Sans', sans-serif;
+    color: #121212;
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Source Sans Pro', sans-serif;
+  }
+</style>
+<title>CS 184 Mesh Editor</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+</head>
+
+
+<body>
+
+<h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2017</h1>
+<h1 align="middle">Project 2: Mesh Editor</h1>
+<h2 align="middle">James Razo, CS184</h2>
+
+<br><br>
+
+<div>
+
+<h2 align="middle">Overview</h2>
+<p>Bézier curves and Bézier surfaces are some of the main components that give an object its shape through linear interpolation by 
+using de Casteljau's Algorithm. In this project I go over the implementation of de Casteljau's algorithm and the subdivision of meshes
+through edge splits and edge flips. Subdivision is another great way of creating smooth objects through the 4-1 subdivision of 
+triangles. This creates the amount of detail in a object in terms of shading and texture.</p>
+
+<h2 align="middle">Section I: Bézier Curves and Surfaces</h2>
+
+<h3 align="middle">Part 1: Bézier curves with 1D de Casteljau subdivision</h3>
+
+<p>Performing de Casteljau's algorithm is a linear time operation that calculates a mid-point between two control points. For instance
+if we were working with n control points, de Casteljau's algorithm returns (n - 1) points through linear interpolation. I iterate 
+through two control points at a time to receive a new midpoint between these two points. The new point is calculated by multiplying 
+the first control point in the iteration by (1 - t) and the second control point in the iteration by t. The value t is a float in the
+range [0, 1]. I then add these two points to finally retrieve the correct position in 2D space. I then store this new point into the 
+vector data structure. Once all pair of points have been interpolated and pushed into the vector, we return this new vector of points. 
+Upon successful calls to the function that performs these steps we should be able to achieve a final point were the Bézier curve would 
+pass through. </p>
+
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/oneEval.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bézier Curve after first interpolation.</figcaption>
+      </td>
+      <td>
+        <img src="images/twoEval.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bézier Curve after second interpolation.</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="images/threeEval.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bézier Curve after third interpolation.</figcaption>
+      </td>
+      <td>
+        <img src="images/fourEval.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bézier Curve after fourth interpolation.</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="images/bezierCurve6.png" align="middle" width="400px"/>
+        <figcaption align="middle">Full evaluated Bézier Curve.</figcaption>
+      </td>
+       <td>
+        <img src="images/differentTVal.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bézier Curve with different value t.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+
+<h3 align="middle">Part 2: Bézier surfaces with separable 1D de Casteljau subdivision</h3>
+<p>Bézier surfaces is similar to what I did in the first process. However, Bézier surfaces requires us to interpolate a 2D vector 
+instead of interpolating a 1D vector like we did in task one. The interpolation process was essentially the same as the Bézier curve 
+where we acquired new midpoint vertices between a pair of control points. Since we are dealing with a 2D vector(a vector inside a 
+vector), I first iterated through each individual vector inside the 2D vector and evaluated each individual vector with a 
+corresponding u value by calling a function that would recursively evaluate each step of de Casteljau's algorithm until it finally 
+returned one point on the Bézier curve. I pushed each individual evaluated point onto another vector and called the same recursive 
+method with its corresponding v value until I finally once again retrieved the last point. This last point is what lies on the moving 
+Bézier curve.  
+</p>
+
+<br></br>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/teapot.png" align="middle" width="400px"/>
+        <figcaption align="middle">Bézier Surface using separable 1D de Casteljau.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+
+<h2 align="middle">Section II: Sampling</h2>
+
+<h3 align="middle">Part 3: Average normals for half-edge meshes</h3>
+<p> To evaluate the weighted normal of a point I used the halfedge datastructure to guide me through mesh traversals. Given the 
+halfedge at a vertex, I began my traversal at that halfedge by first acquiring the 3 points of the first triangle. I stored these 
+points into separate Vector3D variables. To acquire the first point I simply point towards the halfedge->vertex(), the second point
+is found by pointing towards the twin halfedge vertex and the last point is found by the twin's->next->next->vertex. Once I have all 
+three points I find the tangent lines of point one to point two and point one to point three. With these tangent lines I can then 
+compute the cross prodct of the two tangent lines to get receieve an area weighted Vector3D. I add the sum of this vector to another 
+dummy Vector3D with values 0. I then move on to the next triangle mesh surronding the initial vertex and repeat this same process 
+until I have traveresed all neighboring triangles. Once I have the sum of all area weighted vectors I find its normal by using the 
+equation 1 / sqrt(x^2, y^2, z^2) and return its corresponding unit vector.  </p>
+
+<br></br>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/flatShading.png" align="middle" width="400px"/>
+        <figcaption align="middle">Flat shading.</figcaption>
+      </td>
+      <td>
+        <img src="images/PhongShading.png" align="middle" width="400px"/>
+        <figcaption align="middle">Phong shading.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+
+<h3 align="middle">Part 4: Half-edge flip</h3>
+<p>Given an edge as a parameter I had to rearrange all pointers that belonged to the halfedge of the edge passed in. This meant 
+that I first had to store every single detail about the mesh before being able to set pointers on variables with important 
+information. This is where drawing out an image of a halfedge came into play for my success. The pictures below show all of the 
+important details that belonged to that halfedge. In this case the edge that was passed in. As you can see, I stored h0-h9, v0-v4, 
+e0-e4, and f0-f1 so that I could begin the process of overwriting the pointers of every element. Being able to see the after image of
+the flip came in handy as it visually shows all the changes one would have to make to set the correct pointers for the halfedges. </p>
+
+<br></br>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/beforeFlip.png" align="middle" width="400px"/>
+        <figcaption align="middle">Before edge flip.</figcaption>
+      </td>
+      <td>
+        <img src="images/afterFlip.png" align="middle" width="400px"/>
+        <figcaption align="middle">After edge flip.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/eFlipFlat.png" align="middle" width="400px"/>
+        <figcaption align="middle">Flat edge flip shading.</figcaption>
+      </td>
+      <td>
+        <img src="images/eFlipPhong.png" align="middle" width="400px"/>
+        <figcaption align="middle">Phong edge flip shading.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+
+<h3 align="middle">Part 5: Half-edge split</h3>
+<p>The process of splitting an edge was an eventful one. This was very similiar to flipping edges where I had to first store every 
+pointer of the halfedge into different variables so that I would not loose any information during the rearrangment of pointers. A key
+difference in this part was that I had to add new components making it a little more difficult to keep track of pointers. However, 
+just like before I found it very useful to draw a before and after image of edge splitting to help me arragne pointers. I had to set 
+correct pointers for every halfedge that was part of the triangles interior. When splitting an edge the output is a triangle with two 
+new faces, three new edges, 6 new halfedges, and one new vertice. Therefore, to properly rearrange pointets with these new components 
+my drawing came in handy to successfully point at correct values.  </p>
+
+<br></br>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/edgeSplits.png" align="middle" width="400px"/>
+        <figcaption align="middle">Edge splits.</figcaption>
+      </td>
+      <td>
+        <img src="images/edgeSplitsFlips.png" align="middle" width="400px"/>
+        <figcaption align="middle">Edge splits with some flips.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+
+<h3 align="middle">Part 6: Loop subdivision for mesh upsampling</h3>
+<p>For subdivision I implemented this mesh upsampling by using the functions edge split and edge flip. To begin this process of 
+  upsampling I precomputed the vertex positons by iterating through the mesh edges and the mesh vertices. To update the old vertices 
+  and new vertices there was a weighted scheme that helped us derive the correct positions. For the new vertices I iterated through 
+  the edges and used this equation 3/8 * (A + B) + 1/8 * (C + D). Here A, B are adjacent and are the vertex positions in space and C, 
+  D are not adjacent and are two differnt vertex in space for the same mesh. This new position was then stored inside the edges 
+  pointer for newPosition to later on introduce this position the new vertex after splitting.
+</p>
+
+<p>To update the old vertex, I traversed the mesh vertices and used this weighted scheme instead (1 - n * u) * original_position + u * 
+original_neighbor_position_sum. Where n is the vertex degree, u is a fixed number, original_position is the current vertex position, 
+and original_neighbor_position_sum is the sum of neighboring position for the halfedge. This value is right away stored inside the 
+vertex position.</p>
+
+
+<p>After precomputing the old and new vertices I then had to traverse the edges again and begin the splitting proccess. Since the 
+function edgeSplits returns the new vertex, I was then able to update the position of the returned vertex with the pointer I had
+stored earlier inside edge newPosition. Making it efficient to update the values. I then had to check for edge flips whenever an old 
+vertex and new vertex were adjacent to one another. I did this only if the edge was new when we split. I then perform a final 
+iteration through the vertices and update their positions with their newPositions.</p>
+
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/noLoop.png" align="middle" width="400px"/>
+        <figcaption align="middle">No loop subdivision.</figcaption>
+      </td>
+      <td>
+        <img src="images/oneSub.png" align="middle" width="400px"/>
+        <figcaption align="middle">One loop subdivision.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/twoSubs.png" align="middle" width="400px"/>
+        <figcaption align="middle">Two loop subdivisions.</figcaption>
+      </td>
+      <td>
+        <img src="images/threeSubs.png" align="middle" width="400px"/>
+        <figcaption align="middle">Three loop subdivisions.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+<p>As we see above the sharp corners and edges start to become smooth as we subdivide further. If I split edges before subdividing 
+the effects are reduced but the image starts to acquire holes as we see below. </p>
+
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/splitFirst.png" align="middle" width="400px"/>
+        <figcaption align="middle">Split First.</figcaption>
+      </td>
+      <td>
+        <img src="images/splitSub1.png" align="middle" width="400px"/>
+        <figcaption align="middle">Split First, Subdivision.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/splitSub2.png" align="middle" width="400px"/>
+        <figcaption align="middle">Split First, Two Subdivisions.</figcaption>
+      </td>
+      <td>
+        <img src="images/splitSub3.png" align="middle" width="400px"/>
+        <figcaption align="middle">Split First, Three Subdivisions.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<p> The same can be seen with the cube. However, when can split as many times as we want and perhaps flip at times to make the cube 
+  become symmetrical during subdivision. This is because if we split first then the mesh has a numerous amount of vertices that are 
+  not accounted for when we subdivide. This means that our vertex approximation when updating the values are somewhat skewed. Now this
+  can be a good or bad since we are trying to retain the property of the shape. 
+</p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="images/cube.png" align="middle" width="400px"/>
+        <figcaption align="middle">Normal Cube.</figcaption>
+      </td>
+      <td>
+        <img src="images/cubeSub1.png" align="middle" width="400px"/>
+        <figcaption align="middle">Normal Cube, Subdivision.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/cubeSub2.png" align="middle" width="400px"/>
+        <figcaption align="middle">Normal Cube, Two Subdivisions.</figcaption>
+      </td>
+      <td>
+        <img src="images/cubeSub3.png" align="middle" width="400px"/>
+        <figcaption align="middle">Normal Cube, Three Subdivisions.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/cubeSplit.png" align="middle" width="400px"/>
+        <figcaption align="middle">Cube Split First.</figcaption>
+      </td>
+      <td>
+        <img src="images/cubeSplit1.png" align="middle" width="400px"/>
+        <figcaption align="middle">Split First, Subdivision.</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="images/cubeSplit2.png" align="middle" width="400px"/>
+        <figcaption align="middle">Split First, Two Subdivisions.</figcaption>
+      </td>
+      <td>
+        <img src="images/cubeSplit3.png" align="middle" width="400px"/>
+        <figcaption align="middle">Split First, Three Subdivisions.</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+
+
+</body>
+</html>
